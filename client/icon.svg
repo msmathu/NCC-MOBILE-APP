@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect width="256" height="256" rx="48" fill="#4b5320"/>
+  <rect y="0" width="256" height="40" rx="0" fill="#ff9933" opacity="0.9"/>
+  <rect y="216" width="256" height="40" fill="#138808" opacity="0.9"/>
+  <circle cx="128" cy="128" r="78" fill="#c3b091" stroke="#d4a017" stroke-width="10"/>
+  <path d="M84 118 Q128 70 172 110 L168 124 Q128 104 88 132 Z" fill="#7b1e2b"/>
+  <circle cx="150" cy="104" r="7" fill="#d4a017"/>
+  <text x="128" y="182" font-family="Arial, sans-serif" font-size="46" font-weight="bold" fill="#1f2a44" text-anchor="middle">NCC</text>
+</svg>
