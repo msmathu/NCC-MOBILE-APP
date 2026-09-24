@@ -202,6 +202,7 @@ func _process(d: float) -> void:
 func _go() -> void:
 	state = "run"
 	_banner(Sfx.say("go"), 1.6)
+	hint.text = "LEVEL 1 - OBSTACLE COURSE"
 	Sfx.play("whistle")
 
 
@@ -370,7 +371,7 @@ func _finish() -> void:
 		_send_progress(true)
 		Net.send({"t": "finish"})
 		finish_sent = true
-		info_label.text = "Waiting for the squad to finish..."
+		info_label.text = "Waiting for the squad...  Next: LEVEL 2 - TARGET PRACTICE"
 	else:
 		_practice_results.call_deferred()
 

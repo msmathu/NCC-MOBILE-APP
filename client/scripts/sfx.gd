@@ -11,8 +11,8 @@ const COMMANDS := {
 	"faster": ["Tez Chal!", "तेज़ चल!", "Double time!"],
 	"halt": ["Tham!", "थम!", "Halt!"],
 	"good": ["Shabash!", "शाबाश!", "Well done!"],
-	"level2": ["Level Two!", "लेवल दो, तेज़ चल!", "Level two, quick march!"],
-	"level3": ["Camp Final!", "कैंप फ़ाइनल, तेज़ चल!", "Camp final, quick march!"],
+	"level2": ["Section Two!", "सेक्शन दो, तेज़ चल!", "Section two, quick march!"],
+	"level3": ["Section Three!", "सेक्शन तीन, तेज़ चल!", "Section three, quick march!"],
 }
 
 var _music: AudioStreamPlayer
@@ -76,6 +76,17 @@ func say(key: String) -> String:
 			DisplayServer.tts_stop()
 			DisplayServer.tts_speak(c[1] if hindi else c[2], voice, 90, 1.0, 1.1)
 	return c[0]
+
+
+## Reads free text aloud in English (map-reading clues from the instructor).
+func speak(text: String) -> void:
+	if not Profile.voice_on or not ProjectSettings.get_setting("audio/general/text_to_speech", false):
+		return
+	if _english_voice == "":
+		_pick_voices()
+	if _english_voice != "":
+		DisplayServer.tts_stop()
+		DisplayServer.tts_speak(text, _english_voice, 90, 1.0, 1.0)
 
 
 func _pick_voices() -> void:

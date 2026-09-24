@@ -67,6 +67,13 @@ export const DNF_DP = 10;
 
 export const ROLES = ['leader', 'scout', 'support'];
 
+// A match is a 3-level camp competition: L1 obstacle course, L2 target practice
+// (25 m range, 5 shots, max 50), L3 map reading (5 clues, max 50).
+export const STAGE_MS = { range: 100 * 1000, map: 150 * 1000 };
+export const STAGE_MAX_SCORE = 50;
+// Camp points for 1st..7th in each level; the total decides the match.
+export const STAGE_POINTS = [10, 8, 6, 5, 4, 3, 2];
+
 export const BOT_NAMES = [
   'Cdt Arjun', 'Cdt Priya', 'Cdt Rohan', 'Cdt Meera', 'Cdt Kabir', 'Cdt Ananya',
   'Cdt Vikram', 'Cdt Sneha', 'Cdt Aditya', 'Cdt Kavya', 'Cdt Ishaan', 'Cdt Diya',

@@ -25,7 +25,7 @@ func _draw() -> void:
 		var a: float = bounds[i] / Course.FINISH_X
 		var b: float = bounds[i + 1] / Course.FINISH_X
 		draw_rect(Rect2(bar.position.x + bar.size.x * a, bar.position.y, bar.size.x * (b - a), bar.size.y), cols[i])
-		draw_string(font, Vector2(bar.position.x + bar.size.x * a + 4, bar.position.y - 6), "L%d" % (i + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 1, 1, 0.8))
+		draw_string(font, Vector2(bar.position.x + bar.size.x * a + 4, bar.position.y - 6), "S%d" % (i + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 1, 1, 0.8))
 	for i in Course.OBSTACLE_COUNT:
 		var k := Course.obstacle_x(i) / Course.FINISH_X
 		draw_line(Vector2(bar.position.x + bar.size.x * k, bar.position.y), Vector2(bar.position.x + bar.size.x * k, bar.end.y), Color(0, 0, 0, 0.5), 2)

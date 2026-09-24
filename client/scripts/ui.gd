@@ -10,6 +10,7 @@ const SKY := Color("7ec8e3")
 const GOLD := Color("d4a017")
 const RED := Color("c0392b")
 const WHITE := Color("f7f3e8")
+const GREEN_OK := Color("2ecc71")
 
 ## Marker colours for the 7 cadets on the track map.
 const LANE_COLORS := [Color("d4a017"), Color("e74c3c"), Color("3498db"), Color("2ecc71"), Color("9b59b6"), Color("e67e22"), Color("1abc9c")]

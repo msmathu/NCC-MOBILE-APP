@@ -1,6 +1,6 @@
 # NCC Cadet Challenge
 
-A 7-player online obstacle race set on an NCC drill field, available as an **Android app** and a **website game**. There are 3 levels and 15 obstacles. You don't sign up: enter a name, then create or join a room. Phones and browsers play in the same rooms, from anywhere.
+A 7-player online **NCC camp competition** available as an **Android app** and a **website game**. Each match has 3 levels: an obstacle course, target practice and map reading. You don't sign up: enter a name, then create or join a room. Phones and browsers play in the same rooms, from anywhere.
 
 The same code is pushed to both repositories:
 - Website: https://github.com/msmathu/NCC-WEBSITE-APP-
@@ -20,6 +20,7 @@ Every app and web page has its server set to `auto` by default. They read `serve
 - **Website:** send players the printed `https://….trycloudflare.com` link. That page is the game.
 - **Android:** players download the APK from the website's **GET THE ANDROID APP** button (or `docs/download/`). The app finds the server on its own.
 - Keep the window open while people play. When the PC is off, online play stops, but Practice mode still works offline.
+- A brand-new tunnel address can take a few minutes to reach every phone. If a phone shows **Offline** right after you start `GO-PUBLIC.bat`, turn its Wi-Fi off and on (this clears its DNS cache) or wait a few minutes.
 - For a server that's always on, see "Permanent free hosting" below. Once it's set up, put its address in `server.json` and push.
 
 Every tool and service used is free.
@@ -116,7 +117,17 @@ _tools/Godot_v4.7.2-stable_win64_console.exe --path client -- --practice --autop
 
 A room has a 4-character code and **exactly 7 cadets**. At 7/7, a **10 s countdown** starts on its own. Anyone who joins a full room or a race in progress becomes a **spectator** and can send cheer emojis. The host can also press **Start now**, which fills empty slots with bot cadets.
 
-**Race.** Your cadet runs on their own. At each obstacle a mini-game appears and the camera zooms in. The track map at the top shows all 7 cadets live.
+**The camp: 3 levels per match.** In each level you earn camp points by placing (10/8/6/5/4/3/2 for 1st to 7th). The highest total wins the camp.
+
+| Level | What you do | Score |
+|---|---|---|
+| **1. Obstacle Course** | all 15 obstacles in one course (3 sections) | finishing place |
+| **2. Target Practice** | fictional 25 m game range. The sight sways, so drag to aim, hold **BREATH** to steady it for a few seconds, and aim upwind (watch the wind flag). 5 rounds on a 10-ring paper target. | 0-50, graded Marksman 45+, First Class 38+, Qualified 28+ |
+| **3. Map Reading** | the instructor gives 5 spoken clues: symbol reading, 4-figure grid references (eastings then northings), "from the Temple go 3 North and 2 East", compass bearings. Tap the exact square. | up to 10 per clue for fast answers, 4 on a second try (0-50) |
+
+Everyone in a room gets the same wind and the same map, because the server sends a shared random seed. In Practice you can play the full camp or any single level offline.
+
+**Level 1 race.** Your cadet runs on their own. At each obstacle a mini-game appears and the camera zooms in. The track map at the top shows all 7 cadets live.
 
 | # | Obstacle | Touch | Keyboard |
 |---|---|---|---|
@@ -136,11 +147,11 @@ A room has a 4-character code and **exactly 7 cadets**. At 7/7, a **10 s countdo
 | 14 | Cargo Net | D-pad / swipes through the knots | arrows |
 | 15 | Finish Line Sprint | tap fast, manage stamina | Space |
 
-Level 2 has mud patches that slow you down. In Level 3 you carry a .22 rifle and pack, which also slows you slightly.
+Section 2 of the course has mud patches that slow you down. In Section 3 you carry a .22 rifle and pack, which also slows you slightly.
 
 **Squad roles** (the host switches these on): SUO/JUO gives a +12 % speed aura to cadets near them. Scouts see warnings earlier and get 35 % wider timing windows. Support cadets give a bigger lift at the High Wall.
 
-**Progression.** Drill Points depend on finishing place: 100/80/65/55/45/40/35, plus 20 for finishing. A race with only you and bots pays half. The ranks are Cadet → Lance Corporal (300) → Corporal (800) → Sergeant (1600) → Under Officer (3000) → SUO (5000). Higher ranks unlock the Navy White and Air Wing Blue uniforms, beret colours and badges.
+**Progression.** Drill Points depend on your final camp place: 100/80/65/55/45/40/35, plus 20 for taking part. A match with only you and bots pays half. The ranks are Cadet → Lance Corporal (300) → Corporal (800) → Sergeant (1600) → Under Officer (3000) → SUO (5000). Higher ranks unlock the Navy White and Air Wing Blue uniforms, beret colours and badges.
 
 **Leaderboard.** The Directorate leaderboard adds up DP for each of the 17 NCC Directorates and also shows the top cadets.
 

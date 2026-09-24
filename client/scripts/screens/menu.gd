@@ -74,7 +74,15 @@ func _ready() -> void:
 	join_row.add_child(join)
 	online_buttons.append(join)
 	col.add_child(join_row)
-	col.add_child(UI.button("PRACTICE DRILL  -  offline vs bots", func() -> void: main.start_practice()))
+	var practice_row := UI.hbox(10)
+	practice_row.add_child(UI.label("PRACTICE", 20, UI.KHAKI_LIGHT))
+	for item in [["FULL CAMP", "camp"], ["L1 COURSE", "course"], ["L2 RANGE", "range"], ["L3 MAP", "map"]]:
+		var which: String = item[1]
+		var b := UI.button(item[0], func() -> void: main.start_practice(which))
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", 20)
+		practice_row.add_child(b)
+	col.add_child(practice_row)
 	var extras := UI.hbox(12)
 	for item in [["CUSTOMIZE", "customize"], ["LEADERBOARD", "board"], ["SETTINGS", "settings"]]:
 		var target: String = item[1]

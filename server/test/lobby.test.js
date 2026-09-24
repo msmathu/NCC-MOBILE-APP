@@ -90,10 +90,30 @@ test('solo host races bots; forged early finish rejected; results pay DP', () =>
   }
   assert.equal(r.p, 1);
   lobby.handle(host.s, { t: 'finish' });
+
+  // Level 2: target practice. Wrong-stage and out-of-range scores are rejected / clamped.
+  let view = host.last('room');
+  assert.equal(view.state, 'racing');
+  assert.equal(view.stage, 'range');
+  assert.ok(host.last('stage').seed > 0);
+  assert.ok(view.players.find((p) => p.id === host.s.id).coursePlace >= 1);
+  lobby.handle(host.s, { t: 'score', stage: 'map', score: 50 });
+  assert.equal(host.last('room').stage, 'range');
+  lobby.handle(host.s, { t: 'score', stage: 'range', score: 999 });
+  // Level 3 starts once the only human has submitted (bots are filled in).
+  view = host.last('room');
+  assert.equal(view.stage, 'map');
+  assert.equal(view.players.find((p) => p.id === host.s.id).rangeScore, 50);
+  assert.ok(view.players.filter((p) => p.bot).every((p) => p.rangeScore > 0));
+  lobby.handle(host.s, { t: 'score', stage: 'map', score: 37 });
+
   const res = host.last('room');
   assert.equal(res.state, 'results');
   const mine = res.results.find((x) => x.id === host.s.id);
-  assert.ok(mine.place >= 1 && mine.dp > 0);
+  assert.equal(mine.rangeScore, 50);
+  assert.equal(mine.mapScore, 37);
+  assert.ok(mine.points >= 3 * 2 && mine.place >= 1 && mine.dp > 0);
+  for (let i = 1; i < res.results.length; i++) assert.ok(res.results[i - 1].points >= res.results[i].points);
   assert.equal(host.last('profile').profile.dp, mine.dp);
   assert.equal(store.leaderboard().directorates[0].name, 'Maharashtra');
 
@@ -126,6 +146,27 @@ test('reconnect with token resumes the same slot', () => {
   // Old socket closing late must not drop the resumed session.
   lobby.disconnect(b.s, b.send);
   assert.equal(a.last('room').players.find((p) => p.name === 'Bravo').connected, true);
+});
+
+test('stages time out when a cadet never submits', () => {
+  const { lobby, join, advance } = setup();
+  const a = join('Alpha', 0);
+  const b = join('Bravo', 1);
+  lobby.handle(a.s, { t: 'create' });
+  lobby.handle(b.s, { t: 'join', code: a.last('room').code });
+  lobby.handle(a.s, { t: 'start' });
+  advance(COUNTDOWN_SECONDS * 1000 + 100);
+  // Nobody finishes the course: it times out after 6 minutes, then each stage times out.
+  advance(6 * 60 * 1000 + 200);
+  assert.equal(a.last('room').stage, 'range');
+  lobby.handle(a.s, { t: 'score', stage: 'range', score: 40 });
+  assert.equal(a.last('room').stage, 'range', 'waits for Bravo');
+  advance(100 * 1000 + 200);
+  assert.equal(a.last('room').stage, 'map');
+  advance(150 * 1000 + 200);
+  const res = a.last('room');
+  assert.equal(res.state, 'results');
+  assert.equal(res.results.find((r) => r.name === 'Bravo').rangeScore, null);
 });
 
 test('customization is gated by rank', () => {

@@ -98,7 +98,7 @@ func _draw_props(l: float, r: float) -> void:
 			draw_rect(Rect2(bx + 162, G - 150, 10, 150), WOOD_DARK)
 			draw_rect(Rect2(bx - 20, G - 230, 210, 90), Color("2f3515"))
 			draw_rect(Rect2(bx - 20, G - 230, 210, 90), Color("d4a017"), false, 4)
-			_text(Vector2(bx - 8, G - 200), "LEVEL %d" % (i + 1), 26, Color("d4a017"))
+			_text(Vector2(bx - 8, G - 200), "SECTION %d" % (i + 1), 26, Color("d4a017"))
 			_text(Vector2(bx - 8, G - 166), Course.LEVELS[i].sub.to_upper(), 18, Color.WHITE)
 	# mud patches (level 2)
 	for i in range(5, 10):

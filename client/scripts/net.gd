@@ -13,6 +13,8 @@ signal profile(data: Dictionary)
 signal board(data: Dictionary)
 signal error(msg: String)
 signal left
+signal stage(data: Dictionary)
+signal stage_done(data: Dictionary)
 
 var online := false
 var my_id := ""
@@ -186,6 +188,10 @@ func _dispatch(text: String) -> void:
 			profile.emit(msg.profile)
 		"board":
 			board.emit(msg)
+		"stage":
+			stage.emit(msg)
+		"stagedone":
+			stage_done.emit(msg)
 		"left":
 			last_room = {}
 			left.emit()

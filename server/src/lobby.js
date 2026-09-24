@@ -5,6 +5,7 @@ import {
   ROOM_SIZE, COUNTDOWN_SECONDS, RACE_TIMEOUT_MS, RESULTS_LINGER_MS, RECONNECT_GRACE_MS,
   FINISH_X, OBSTACLE_COUNT, OBSTACLE_PASS_WIDTH, SPRINT_LENGTH, MIN_FINISH_MS,
   DIRECTORATES, ROLES, BOT_NAMES, PLACE_DP, FINISH_BONUS_DP, DNF_DP, obstacleX,
+  STAGE_MS, STAGE_MAX_SCORE, STAGE_POINTS,
 } from './course.js';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -121,7 +122,7 @@ export class Lobby {
       hello: this.onHello, create: this.onCreate, join: this.onJoin, quick: this.onQuick,
       leave: this.onLeave, start: this.onStart, roles: this.onRoles, progress: this.onProgress,
       finish: this.onFinish, cheer: this.onCheer, look: this.onLook, board: this.onBoard,
-      rematch: this.onRematch, ping: this.onPing,
+      rematch: this.onRematch, ping: this.onPing, score: this.onScore,
     }[msg.t];
     return fn ? fn.call(this, session, msg) : undefined;
   }
@@ -227,7 +228,7 @@ export class Lobby {
   onProgress(session, msg) {
     const room = session.room;
     const racer = room?.racers.get(session.id);
-    if (!racer || room.state !== 'racing' || racer.finishMs != null || racer.dnf) return;
+    if (!racer || room.state !== 'racing' || room.stage !== 'course' || racer.finishMs != null || racer.dnf) return;
     const p = Number(msg.p);
     if (!Number.isFinite(p)) return;
     const now = this.now();
@@ -240,7 +241,7 @@ export class Lobby {
   onFinish(session) {
     const room = session.room;
     const racer = room?.racers.get(session.id);
-    if (!racer || room.state !== 'racing' || racer.finishMs != null || racer.dnf) return;
+    if (!racer || room.state !== 'racing' || room.stage !== 'course' || racer.finishMs != null || racer.dnf) return;
     const elapsed = this.now() - room.startedAt;
     if (racer.p < 0.97 || elapsed < MIN_FINISH_MS) {
       return session.send({ t: 'error', msg: 'Finish rejected: course not completed' });
@@ -286,6 +287,16 @@ export class Lobby {
 
   onPing(session, msg) { session.send({ t: 'pong', c: msg.c ?? 0 }); }
 
+  // Level 2 / 3 result from a client (scores are played locally on the device).
+  onScore(session, msg) {
+    const room = session.room;
+    const racer = room?.racers.get(session.id);
+    if (!racer || room.state !== 'racing' || room.stage === 'course' || msg.stage !== room.stage || racer.stageDone) return;
+    const score = Math.max(0, Math.min(STAGE_MAX_SCORE, Math.round(Number(msg.score) || 0)));
+    this.submitStage(room, racer, score);
+    this.maybeFinishStage(room);
+  }
+
   // ---- room helpers -------------------------------------------------------
 
   newCode() {
@@ -297,13 +308,19 @@ export class Lobby {
   }
 
   newRacer(id, who, bot = false, session = null) {
+    const skill = rand(0.82, 1.12);
     return {
-      id, bot, session, connected: true, deviceId: who.deviceId ?? null,
+      id, bot, session, connected: true, deviceId: who.deviceId ?? null, skill,
       name: who.name, directorate: who.directorate,
       uniform: who.uniform ?? 'army', beret: who.beret ?? 'maroon', badge: who.badge ?? 'none',
-      role: 'cadet', p: 0, st: 'wait', finishMs: null, dnf: false, lastProgressAt: 0,
-      plan: bot ? planBot(rand(0.82, 1.12)) : null,
+      role: 'cadet', p: 0, st: 'wait', finishMs: null, dnf: false, left: false, lastProgressAt: 0,
+      plan: bot ? planBot(skill) : null,
+      ...this.freshScores(),
     };
+  }
+
+  freshScores() {
+    return { coursePlace: null, rangeScore: null, mapScore: null, points: 0, stageDone: false, botDoneAt: 0, botScore: 0 };
   }
 
   enterRoom(session, room) {
@@ -330,8 +347,13 @@ export class Lobby {
       if (room.state === 'racing') {
         racer.connected = false;
         racer.session = null;
-        if (racer.finishMs == null) racer.dnf = true;
-        this.maybeFinishRace(room);
+        racer.left = true;
+        if (room.stage === 'course') {
+          if (racer.finishMs == null) racer.dnf = true;
+          this.maybeFinishRace(room);
+        } else {
+          this.maybeFinishStage(room);
+        }
       } else {
         room.racers.delete(session.id);
         if (room.state === 'countdown' && room.humans().length > 0) {
@@ -357,13 +379,14 @@ export class Lobby {
 
   startRace(room) {
     room.state = 'racing';
+    room.stage = 'course';
     room.startedAt = this.now();
     if (room.rolesMode) {
       const ids = [...room.racers.keys()].sort(() => Math.random() - 0.5);
       ids.forEach((id, i) => { room.racers.get(id).role = ['leader', 'scout', 'scout', 'support', 'support'][i] ?? 'cadet'; });
     }
     for (const r of room.racers.values()) {
-      Object.assign(r, { p: 0, st: 'run', finishMs: null, dnf: false, lastProgressAt: room.startedAt });
+      Object.assign(r, { p: 0, st: 'run', finishMs: null, dnf: false, left: false, lastProgressAt: room.startedAt, ...this.freshScores() });
     }
     this.pushRoom(room);
     room.broadcast({ t: 'go' });
@@ -374,32 +397,98 @@ export class Lobby {
     room.broadcast({ t: 'finished', id: racer.id, name: racer.name, ms: racer.finishMs, place });
   }
 
+  // ---- Level 1: obstacle course ---------------------------------------------
+
   maybeFinishRace(room) {
-    if (room.state !== 'racing') return;
+    if (room.state !== 'racing' || room.stage !== 'course') return;
     const elapsed = this.now() - room.startedAt;
     const pending = room.humans().some((r) => r.finishMs == null && !r.dnf);
     if (pending && elapsed < RACE_TIMEOUT_MS) return;
     for (const r of room.humans()) if (r.finishMs == null) r.dnf = true;
-    this.finishRace(room);
+    this.finishCourse(room);
   }
 
-  finishRace(room) {
+  finishCourse(room) {
+    const all = [...room.racers.values()];
+    // Bots always complete their planned run, even if humans finished first.
+    for (const r of all) if (r.bot && r.finishMs == null) r.finishMs = r.plan.finishMs;
+    all.sort((a, b) => (a.dnf - b.dnf) || ((a.finishMs ?? Infinity) - (b.finishMs ?? Infinity)));
+    all.forEach((r, i) => {
+      r.coursePlace = r.dnf ? null : i + 1;
+      r.points += r.dnf ? 0 : STAGE_POINTS[i];
+    });
+    this.startStage(room, 'range');
+  }
+
+  // ---- Level 2 (range) and Level 3 (map): played on each device, scores submitted ---
+
+  startStage(room, stage) {
+    const now = this.now();
+    room.stage = stage;
+    room.stageSeed = crypto.randomInt(1, 2 ** 31 - 1);
+    room.stageEndsAt = now + STAGE_MS[stage];
+    const [lo, hi] = stage === 'range' ? [35, 70] : [50, 110];
+    for (const r of room.racers.values()) {
+      r.stageDone = false;
+      if (r.bot) {
+        // Better cadets (higher skill) score more; ~20-45 out of 50 with some luck.
+        const base = 20 + ((r.skill - 0.82) / 0.3) * 25;
+        r.botScore = Math.round(Math.max(5, Math.min(49, base + rand(-7, 7) - (stage === 'map' ? 2 : 0))));
+        r.botDoneAt = now + rand(lo, hi) * 1000;
+      }
+    }
+    this.pushRoom(room);
+    room.broadcast({ t: 'stage', stage, seed: room.stageSeed });
+  }
+
+  submitStage(room, racer, score) {
+    racer[`${room.stage}Score`] = score;
+    racer.stageDone = true;
+    room.broadcast({ t: 'stagedone', id: racer.id, name: racer.name, stage: room.stage, score });
+    this.pushRoom(room);
+  }
+
+  maybeFinishStage(room) {
+    if (room.state !== 'racing' || room.stage === 'course') return;
+    const pending = room.humans().some((r) => !r.stageDone && !r.left);
+    if (pending && this.now() < room.stageEndsAt) return;
+    const key = `${room.stage}Score`;
+    for (const r of room.racers.values()) {
+      if (r.bot && !r.stageDone) { r[key] = r.botScore; r.stageDone = true; }
+    }
+    [...room.racers.values()]
+      .filter((r) => r[key] != null)
+      .sort((a, b) => b[key] - a[key])
+      .forEach((r, i) => { r.points += STAGE_POINTS[i]; });
+    if (room.stage === 'range') this.startStage(room, 'map');
+    else this.finishMatch(room);
+  }
+
+  tickStage(room, now) {
+    for (const r of room.racers.values()) {
+      if (r.bot && !r.stageDone && now >= r.botDoneAt) this.submitStage(room, r, r.botScore);
+    }
+    this.maybeFinishStage(room);
+  }
+
+  // ---- final camp results -------------------------------------------------------
+
+  finishMatch(room) {
     room.state = 'results';
     room.resultsAt = this.now();
     const all = [...room.racers.values()];
     const humansCount = all.filter((r) => !r.bot).length;
-    // Bots always complete their planned run, even if humans finished first.
-    for (const r of all) if (r.bot && r.finishMs == null) r.finishMs = r.plan.finishMs;
-    const order = all.sort((a, b) => (a.dnf - b.dnf) || ((a.finishMs ?? Infinity) - (b.finishMs ?? Infinity)));
-    // Solo-with-bots races pay half so nobody farms DP alone.
+    all.sort((a, b) => (b.points - a.points) || ((a.coursePlace ?? 99) - (b.coursePlace ?? 99)));
+    // Solo-with-bots matches pay half so nobody farms DP alone.
     const factor = humansCount >= 2 ? 1 : 0.5;
-    room.results = order.map((r, i) => {
+    room.results = all.map((r, i) => {
       const row = {
         id: r.id, name: r.name, directorate: r.directorate, bot: r.bot, role: r.role,
-        place: r.dnf ? null : i + 1, ms: r.dnf ? null : r.finishMs, dp: 0,
+        place: i + 1, ms: r.dnf ? null : r.finishMs, coursePlace: r.coursePlace,
+        rangeScore: r.rangeScore, mapScore: r.mapScore, points: r.points, dp: 0,
       };
       if (!r.bot) {
-        row.dp = Math.round((r.dnf ? DNF_DP : PLACE_DP[i] + FINISH_BONUS_DP) * factor);
+        row.dp = Math.round((r.left ? DNF_DP : PLACE_DP[i] + FINISH_BONUS_DP) * factor);
         const profile = this.store.recordRace(r.deviceId, {
           dp: row.dp, won: row.place === 1, timeMs: row.ms,
         });
@@ -416,7 +505,7 @@ export class Lobby {
     }
     room.state = 'waiting';
     room.results = null;
-    for (const r of room.racers.values()) Object.assign(r, { p: 0, st: 'wait', finishMs: null, dnf: false, role: 'cadet' });
+    for (const r of room.racers.values()) Object.assign(r, { p: 0, st: 'wait', finishMs: null, dnf: false, left: false, role: 'cadet', ...this.freshScores() });
     // Promote spectators into free slots.
     for (const s of [...room.spectators]) {
       if (room.racers.size >= ROOM_SIZE) break;
@@ -441,11 +530,16 @@ export class Lobby {
       size: ROOM_SIZE,
       countdownMs: room.state === 'countdown' ? Math.max(0, room.countdownEndsAt - now) : 0,
       elapsedMs: room.state === 'racing' ? now - room.startedAt : 0,
+      stage: room.state === 'racing' ? room.stage : null,
+      stageSeed: room.stageSeed ?? 0,
+      stageMsLeft: room.state === 'racing' && room.stage !== 'course' ? Math.max(0, room.stageEndsAt - now) : 0,
       spectators: room.spectators.size,
       players: [...room.racers.values()].map((r) => ({
         id: r.id, name: r.name, directorate: r.directorate, bot: r.bot, connected: r.connected,
         uniform: r.uniform, beret: r.beret, badge: r.badge, role: r.role,
         p: r.p, st: r.st, finishMs: r.finishMs, dnf: r.dnf,
+        coursePlace: r.coursePlace, rangeScore: r.rangeScore, mapScore: r.mapScore,
+        points: r.points, stageDone: r.stageDone,
       })),
       results: room.results,
     };
@@ -463,7 +557,8 @@ export class Lobby {
     const now = this.now();
     for (const room of this.rooms.values()) {
       if (room.state === 'countdown' && now >= room.countdownEndsAt) this.startRace(room);
-      else if (room.state === 'racing') this.tickRace(room, now);
+      else if (room.state === 'racing' && room.stage === 'course') this.tickRace(room, now);
+      else if (room.state === 'racing') this.tickStage(room, now);
       else if (room.state === 'results' && now - room.resultsAt > RESULTS_LINGER_MS) this.resetRoom(room);
     }
   }

@@ -91,6 +91,33 @@ const ROLE_INFO := {
 }
 
 
+## The camp competition: every match plays these three levels in order.
+const CAMP_LEVELS := [
+	{"key": "course", "title": "LEVEL 1 - OBSTACLE COURSE", "short": "L1 Course"},
+	{"key": "range", "title": "LEVEL 2 - TARGET PRACTICE", "short": "L2 Range"},
+	{"key": "map", "title": "LEVEL 3 - MAP READING", "short": "L3 Map"},
+]
+## Camp points for 1st..7th in each level (server/src/course.js STAGE_POINTS).
+const STAGE_POINTS := [10, 8, 6, 5, 4, 3, 2]
+
+
+## Qualification grade for a 5-shot range card (max 50).
+static func qualification(score: int) -> String:
+	if score >= 45:
+		return "MARKSMAN"
+	if score >= 38:
+		return "FIRST CLASS"
+	if score >= 28:
+		return "QUALIFIED"
+	return "NOT QUALIFIED"
+
+
+## Same formula as the server's bots: skill 0.82..1.12 -> about 20..45 of 50.
+static func bot_stage_score(skill: float, stage: String) -> int:
+	var base := 20.0 + (skill - 0.82) / 0.3 * 25.0
+	return int(round(clampf(base + randf_range(-7.0, 7.0) - (2.0 if stage == "map" else 0.0), 5.0, 49.0)))
+
+
 static func obstacle_x(i: int) -> float:
 	return FIRST_OBSTACLE_X + i * OBSTACLE_SPACING
 

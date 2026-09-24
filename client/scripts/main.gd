@@ -12,6 +12,8 @@ const SCREENS := {
 	"customize": preload("res://scripts/screens/customize.gd"),
 	"board": preload("res://scripts/screens/leaderboard.gd"),
 	"settings": preload("res://scripts/screens/settings.gd"),
+	"range": preload("res://scripts/screens/range.gd"),
+	"mapread": preload("res://scripts/screens/mapread.gd"),
 }
 const Race := preload("res://scripts/race/race.gd")
 
@@ -46,11 +48,24 @@ func _ready() -> void:
 	Net.online_changed.connect(_on_online)
 	_on_online(false)
 	_start_screenshots()
-	if OS.get_cmdline_user_args().has("--practice"):
+	var practice_arg := ""
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--practice"):
+			practice_arg = a.trim_prefix("--practice").trim_prefix("=")
+			if practice_arg == "":
+				practice_arg = "camp"
+	if practice_arg != "":
 		if Profile.cadet_name == "":
 			Profile.cadet_name = "Cadet Test"
-		start_practice()
+		start_practice(practice_arg)
 		return
+	if OS.get_cmdline_user_args().has("--auto-online"): # debug: create a room and start with bots
+		if Profile.cadet_name == "":
+			Profile.cadet_name = "Cadet Test"
+		Net.welcome.connect(func(_m: Dictionary) -> void: Net.send({"t": "create"}), CONNECT_ONE_SHOT)
+		Net.room.connect(func(r: Dictionary) -> void:
+			if r.state == "waiting" and r.host == Net.my_id:
+				Net.send({"t": "start"}))
 	if Profile.cadet_name == "":
 		go("title")
 	else:
@@ -67,7 +82,7 @@ func go(name: String, data := {}) -> void:
 		node = Race.new()
 		node.setup(data.mode, data.room)
 		if data.mode == "practice":
-			node.practice_over.connect(func(rows: Array) -> void: go("results", {"practice": true, "results": rows}))
+			node.practice_over.connect(_practice_course_done)
 		backdrop.visible = false
 		status.visible = false
 		add_child(node)
@@ -75,7 +90,9 @@ func go(name: String, data := {}) -> void:
 		node = SCREENS[name].new()
 		node.set("main", self)
 		node.set("data", data)
-		backdrop.visible = true
+		if name in ["range", "mapread"] and data.get("mode") == "practice":
+			node.level_done.connect(_practice_stage_done.bind("range" if name == "range" else "map"))
+		backdrop.visible = name not in ["range", "mapread"]
 		status.visible = true
 		root.add_child(node)
 		root.move_child(status, -1)
@@ -106,16 +123,74 @@ func toast(msg: String, color := UI.GOLD) -> void:
 	UI.toast(root, msg, color)
 
 
-func start_practice() -> void:
+## Offline practice vs 6 bots. `which`: "camp" (all 3 levels), "course", "range" or "map".
+var practice := {}
+
+
+func start_practice(which := "camp") -> void:
 	var players := [{"id": "me", "name": Profile.cadet_name, "uniform": Profile.look.uniform,
-		"beret": Profile.look.beret, "badge": Profile.look.badge, "role": "cadet"}]
+		"beret": Profile.look.beret, "badge": Profile.look.badge, "role": "cadet", "bot": false}]
 	var names := ["Cdt Arjun", "Cdt Priya", "Cdt Rohan", "Cdt Meera", "Cdt Kabir", "Cdt Ananya"]
 	var uniforms := ["army", "navy", "air"]
 	var berets := ["maroon", "black", "blue", "green"]
 	for i in 6:
-		players.append({"id": "bot%d" % i, "name": names[i], "bot": true, "uniform": uniforms[i % 3],
-			"beret": berets[i % 4], "badge": "none", "role": "cadet", "plan": Course.plan_bot(randf_range(0.82, 1.1))})
-	go("race", {"mode": "practice", "room": {"players": players, "me": "me"}})
+		var skill := randf_range(0.82, 1.1)
+		players.append({"id": "bot%d" % i, "name": names[i], "bot": true, "uniform": uniforms[i % 3], "skill": skill,
+			"beret": berets[i % 4], "badge": "none", "role": "cadet", "plan": Course.plan_bot(skill)})
+	practice = {"which": which, "players": players, "scores": {}}
+	for p in players:
+		practice.scores[p.id] = {"coursePlace": null, "ms": null, "rangeScore": null, "mapScore": null, "points": 0}
+	match which:
+		"range":
+			go("range", {"mode": "practice", "seed": randi()})
+		"map":
+			go("mapread", {"mode": "practice", "seed": randi()})
+		_:
+			go("race", {"mode": "practice", "room": {"players": players, "me": "me"}})
+
+
+func _practice_course_done(rows: Array) -> void:
+	for row in rows:
+		var s: Dictionary = practice.scores[row.id]
+		s.coursePlace = row.place
+		s.ms = row.ms
+		s.points += Course.STAGE_POINTS[row.place - 1]
+	if practice.which == "course":
+		_practice_results()
+	else:
+		go("range", {"mode": "practice", "seed": randi()})
+
+
+func _practice_stage_done(score: int, stage: String) -> void:
+	var key := stage + "Score"
+	practice.scores["me"][key] = score
+	for p in practice.players:
+		if p.bot:
+			practice.scores[p.id][key] = Course.bot_stage_score(p.skill, stage)
+	var ids: Array = practice.scores.keys()
+	ids.sort_custom(func(a, b): return practice.scores[a][key] > practice.scores[b][key])
+	for i in ids.size():
+		practice.scores[ids[i]].points += Course.STAGE_POINTS[i]
+	if practice.which == "camp" and stage == "range":
+		go("mapread", {"mode": "practice", "seed": randi()})
+	else:
+		_practice_results()
+
+
+func _practice_results() -> void:
+	var rows := []
+	for p in practice.players:
+		var s: Dictionary = practice.scores[p.id]
+		rows.append({"id": p.id, "name": p.name, "bot": p.bot, "role": "cadet", "dp": 0, "ms": s.ms,
+			"coursePlace": s.coursePlace, "rangeScore": s.rangeScore, "mapScore": s.mapScore, "points": s.points})
+	var key: String = {"course": "points", "range": "rangeScore", "map": "mapScore"}.get(practice.which, "points")
+	rows.sort_custom(func(a, b): return a[key] > b[key] if a[key] != b[key] else (a.coursePlace if a.coursePlace != null else 99) < (b.coursePlace if b.coursePlace != null else 99))
+	for i in rows.size():
+		rows[i].place = i + 1
+	go("results", {"practice": true, "which": practice.which, "results": rows})
+
+
+const STAGE_SCREENS := {"course": "race", "range": "range", "map": "mapread"}
 
 
 func _on_room(room: Dictionary) -> void:
@@ -124,8 +199,10 @@ func _on_room(room: Dictionary) -> void:
 			if current_name != "lobby":
 				go("lobby", {"room": room})
 		"racing":
-			if current_name != "race":
-				go("race", {"mode": "spectate" if room.get("spectating", false) else "online", "room": room})
+			var target: String = STAGE_SCREENS.get(room.get("stage", "course"), "race")
+			if current_name != target:
+				var m := "spectate" if room.get("spectating", false) else "online"
+				go(target, {"mode": m, "room": room, "seed": room.get("stageSeed", 0)})
 		"results":
 			if current_name != "results":
 				go("results", {"room": room})
