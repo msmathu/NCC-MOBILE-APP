@@ -99,19 +99,20 @@ test('solo host races bots; forged early finish rejected; results pay DP', () =>
   assert.ok(view.players.find((p) => p.id === host.s.id).coursePlace >= 1);
   lobby.handle(host.s, { t: 'score', stage: 'map', score: 50 });
   assert.equal(host.last('room').stage, 'range');
-  lobby.handle(host.s, { t: 'score', stage: 'range', score: 999 });
+  lobby.handle(host.s, { t: 'score', stage: 'range', score: 999 }); // clamped to 100
   // Level 3 starts once the only human has submitted (bots are filled in).
   view = host.last('room');
   assert.equal(view.stage, 'map');
-  assert.equal(view.players.find((p) => p.id === host.s.id).rangeScore, 50);
+  assert.equal(view.players.find((p) => p.id === host.s.id).rangeScore, 100);
   assert.ok(view.players.filter((p) => p.bot).every((p) => p.rangeScore > 0));
-  lobby.handle(host.s, { t: 'score', stage: 'map', score: 37 });
+  lobby.handle(host.s, { t: 'score', stage: 'map', score: 850 });
 
   const res = host.last('room');
   assert.equal(res.state, 'results');
   const mine = res.results.find((x) => x.id === host.s.id);
-  assert.equal(mine.rangeScore, 50);
-  assert.equal(mine.mapScore, 37);
+  assert.equal(mine.rangeScore, 100);
+  assert.equal(mine.starDp, 30, 'three-star range bonus');
+  assert.equal(mine.mapScore, 850);
   assert.ok(mine.points >= 3 * 2 && mine.place >= 1 && mine.dp > 0);
   for (let i = 1; i < res.results.length; i++) assert.ok(res.results[i - 1].points >= res.results[i].points);
   assert.equal(host.last('profile').profile.dp, mine.dp);
@@ -161,9 +162,9 @@ test('stages time out when a cadet never submits', () => {
   assert.equal(a.last('room').stage, 'range');
   lobby.handle(a.s, { t: 'score', stage: 'range', score: 40 });
   assert.equal(a.last('room').stage, 'range', 'waits for Bravo');
-  advance(100 * 1000 + 200);
+  advance(200 * 1000 + 200);
   assert.equal(a.last('room').stage, 'map');
-  advance(150 * 1000 + 200);
+  advance(240 * 1000 + 200);
   const res = a.last('room');
   assert.equal(res.state, 'results');
   assert.equal(res.results.find((r) => r.name === 'Bravo').rangeScore, null);

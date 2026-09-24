@@ -39,7 +39,7 @@ func _ready() -> void:
 	col.add_child(UI.spacer(4))
 	if practice:
 		if which == "range" and not mine.is_empty():
-			col.add_child(UI.label("Your range card: %d / 50  -  %s" % [int(mine.rangeScore), Course.qualification(int(mine.rangeScore))], 22, UI.WHITE, HORIZONTAL_ALIGNMENT_CENTER))
+			col.add_child(UI.label("Your range card: %d / 100  -  %s" % [int(mine.rangeScore), Course.qualification(int(mine.rangeScore))], 22, UI.WHITE, HORIZONTAL_ALIGNMENT_CENTER))
 		col.add_child(UI.label("Practice doesn't award Drill Points. Play online to rank up!", 18, UI.KHAKI_LIGHT, HORIZONTAL_ALIGNMENT_CENTER))
 	elif not mine.is_empty():
 		var s := Profile.stats
@@ -90,9 +90,9 @@ func _row(r: Dictionary, is_me: bool, show: Dictionary, header: bool) -> Control
 			t = "DNF" if r.get("coursePlace") == null else "%s (#%d)" % [Course.format_ms(r.ms if r.ms != null else -1.0), int(r.coursePlace)]
 		h.add_child(_cell(t, 190, c, HORIZONTAL_ALIGNMENT_CENTER, sz))
 	if show.range:
-		h.add_child(_cell("L2 RANGE" if header else _score(r.get("rangeScore")), 110, c, HORIZONTAL_ALIGNMENT_CENTER, sz))
+		h.add_child(_cell("L2 RANGE" if header else _score(r.get("rangeScore"), "range"), 120, c, HORIZONTAL_ALIGNMENT_CENTER, sz))
 	if show.map:
-		h.add_child(_cell("L3 MAP" if header else _score(r.get("mapScore")), 110, c, HORIZONTAL_ALIGNMENT_CENTER, sz))
+		h.add_child(_cell("L3 MAP" if header else _score(r.get("mapScore"), "map"), 130, c, HORIZONTAL_ALIGNMENT_CENTER, sz))
 	if show.points:
 		h.add_child(_cell("POINTS" if header else str(int(r.get("points", 0))), 90, c, HORIZONTAL_ALIGNMENT_CENTER, sz))
 	if show.dp:
@@ -100,8 +100,8 @@ func _row(r: Dictionary, is_me: bool, show: Dictionary, header: bool) -> Control
 	return h
 
 
-func _score(v) -> String:
-	return "-" if v == null else "%d/50" % int(v)
+func _score(v, stage: String) -> String:
+	return "-" if v == null else "%d/%d" % [int(v), Course.STAGE_MAX[stage]]
 
 
 func _on_profile(p: Dictionary) -> void:

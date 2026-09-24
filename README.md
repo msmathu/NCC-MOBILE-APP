@@ -102,6 +102,7 @@ cd server && npm test        # rooms, auto-start at 7/7, spectators, bots, anti-
 
 cd client
 ../_tools/Godot_v4.7.2-stable_win64_console.exe --headless --path . res://tests/obstacle_tests.tscn   # every obstacle is clearable
+../_tools/Godot_v4.7.2-stable_win64_console.exe --headless --path . res://tests/map_tests.tscn       # 300 generated Level 3 maps are fair
 ../_tools/Godot_v4.7.2-stable_win64_console.exe --headless --path . res://tests/net_test.tscn        # needs `npm start` running
 ```
 
@@ -122,8 +123,8 @@ A room has a 4-character code and **exactly 7 cadets**. At 7/7, a **10 s countdo
 | Level | What you do | Score |
 |---|---|---|
 | **1. Obstacle Course** | all 15 obstacles in one course (3 sections) | finishing place |
-| **2. Target Practice** | fictional 25 m game range. The sight sways, so drag to aim, hold **BREATH** to steady it for a few seconds, and aim upwind (watch the wind flag). 5 rounds on a 10-ring paper target. | 0-50, graded Marksman 45+, First Class 38+, Qualified 28+ |
-| **3. Map Reading** | the instructor gives 5 spoken clues: symbol reading, 4-figure grid references (eastings then northings), "from the Temple go 3 North and 2 East", compass bearings. Tap the exact square. | up to 10 per clue for fast answers, 4 on a second try (0-50) |
+| **2. Target Practice** | fictional 25 m game range. The instructor briefs you, then you **choose a position**: Standing (most sway, fastest between targets), Kneeling (balanced) or Lying (steadiest, slowest). These are game effects only. Your cadet and the target sheets are both on screen: drag to aim, hold **BREATH** to steady, and watch the wind. **Stage 1 Position Test:** 3 sighting shots with a group read-out. **Stage 2 Accuracy Test:** hit the numbered sheet the instructor calls. **Stage 3 Final Qualification:** 3 sheets, 6 shots, 2 per sheet, 40 s. Then target analysis and a qualification card. | 0-100 (accuracy 40 + final 60). 70+ Qualified, 80+ Good, 90+ Excellent. Stars give +10/+20/+30 bonus DP. |
+| **3. Map Reading & Navigation** | topographic-style training map (1 square = 1 km): grid lines, eastings and northings with tenth ticks, roads, buildings, river, bridge, hill contours, forest, checkpoints and a restricted area. **M1** 4-figure reference of a highlighted building. **M2** 6-figure reference of a small object (a romer overlay appears after a miss). **M3** "Where am I?" (4- then 6-figure). **M4** tap the target from its 6-figure reference. **M5** navigation: direction, distance and route choice (direct, road or trail via the bridge), with the chosen route animated. | 0-1000 (100+150+150+150+50+50+250 + time bonus up to 100). Wrong answer -50. 900+ Excellent, 700+ Qualified, 500+ Training required, below 500 Retrain. |
 
 Everyone in a room gets the same wind and the same map, because the server sends a shared random seed. In Practice you can play the full camp or any single level offline.
 

@@ -48,7 +48,7 @@ func refresh(room: Dictionary) -> void:
 		n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(n)
 		var sc = p.get(key)
-		h.add_child(UI.label(("%d / 50" % sc) if sc != null else ("..." if not p.stageDone else "-"), 20, UI.GREEN_OK if sc != null else UI.KHAKI, HORIZONTAL_ALIGNMENT_RIGHT))
+		h.add_child(UI.label(("%d / %d" % [sc, Course.STAGE_MAX[stage]]) if sc != null else ("..." if not p.stageDone else "-"), 20, UI.GREEN_OK if sc != null else UI.KHAKI, HORIZONTAL_ALIGNMENT_RIGHT))
 		var pts := UI.label("%d pts" % int(p.points), 18, UI.KHAKI_LIGHT, HORIZONTAL_ALIGNMENT_RIGHT)
 		pts.custom_minimum_size = Vector2(90, 0)
 		h.add_child(pts)

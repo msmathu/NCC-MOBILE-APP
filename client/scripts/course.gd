@@ -101,21 +101,42 @@ const CAMP_LEVELS := [
 const STAGE_POINTS := [10, 8, 6, 5, 4, 3, 2]
 
 
-## Qualification grade for a 5-shot range card (max 50).
+const STAGE_MAX := {"range": 100, "map": 1000}
+
+## Level 2 firing positions. Game effects only: sway = aim movement,
+## speed = how quickly the sight swings between target sheets, recoil = kick.
+const STANCES := {
+	"standing": {"name": "STANDING", "sway": 1.4, "speed": 1.35, "recoil": 0.16,
+		"desc": "Most aim movement\nFastest between targets"},
+	"kneeling": {"name": "KNEELING", "sway": 1.0, "speed": 1.0, "recoil": 0.12,
+		"desc": "Balanced movement\nand steadiness"},
+	"lying": {"name": "LYING", "sway": 0.6, "speed": 0.62, "recoil": 0.08,
+		"desc": "Steadiest aim\nSlowest between targets"},
+}
+
+
+## Level 2 stars out of 100: 0 = not qualified, 1 qualified, 2 good, 3 excellent.
+static func range_stars(score: int) -> int:
+	if score >= 90:
+		return 3
+	if score >= 80:
+		return 2
+	if score >= 70:
+		return 1
+	return 0
+
+
+## Qualification grade for a Level 2 score (max 100).
 static func qualification(score: int) -> String:
-	if score >= 45:
-		return "MARKSMAN"
-	if score >= 38:
-		return "FIRST CLASS"
-	if score >= 28:
-		return "QUALIFIED"
-	return "NOT QUALIFIED"
+	return ["NOT QUALIFIED", "QUALIFIED", "GOOD", "EXCELLENT"][range_stars(score)]
 
 
-## Same formula as the server's bots: skill 0.82..1.12 -> about 20..45 of 50.
+## Same formula as the server's bots (skill 0.82..1.12): range ~45-95 of 100, map ~400-950 of 1000.
 static func bot_stage_score(skill: float, stage: String) -> int:
-	var base := 20.0 + (skill - 0.82) / 0.3 * 25.0
-	return int(round(clampf(base + randf_range(-7.0, 7.0) - (2.0 if stage == "map" else 0.0), 5.0, 49.0)))
+	var k := (skill - 0.82) / 0.3
+	if stage == "range":
+		return int(round(clampf(45.0 + k * 45.0 + randf_range(-10.0, 10.0), 20.0, 98.0)))
+	return int(round(clampf(400.0 + k * 500.0 + randf_range(-120.0, 120.0), 150.0, 980.0) / 10.0)) * 10
 
 
 static func obstacle_x(i: int) -> float:
@@ -193,3 +214,14 @@ static func sample_bot(plan: Dictionary, elapsed: float) -> Array:
 			var k: float = 1.0 if b.t == a.t else (elapsed - a.t) / (b.t - a.t)
 			return [(a.x + (b.x - a.x) * k) / FINISH_X, b.st]
 	return [1.0, "done"]
+
+
+## Level 3 map-reading grade out of 1000.
+static func map_grade(score: int) -> String:
+	if score >= 900:
+		return "EXCELLENT"
+	if score >= 700:
+		return "QUALIFIED"
+	if score >= 500:
+		return "TRAINING REQUIRED"
+	return "RETRAIN"

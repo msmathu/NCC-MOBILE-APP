@@ -5,7 +5,7 @@ import {
   ROOM_SIZE, COUNTDOWN_SECONDS, RACE_TIMEOUT_MS, RESULTS_LINGER_MS, RECONNECT_GRACE_MS,
   FINISH_X, OBSTACLE_COUNT, OBSTACLE_PASS_WIDTH, SPRINT_LENGTH, MIN_FINISH_MS,
   DIRECTORATES, ROLES, BOT_NAMES, PLACE_DP, FINISH_BONUS_DP, DNF_DP, obstacleX,
-  STAGE_MS, STAGE_MAX_SCORE, STAGE_POINTS,
+  STAGE_MS, STAGE_MAX_SCORE, STAGE_POINTS, RANGE_STAR_DP,
 } from './course.js';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -60,6 +60,20 @@ export function sampleBot(plan, elapsed) {
     }
   }
   return { p: 1, st: 'done' };
+}
+
+// Better cadets (higher skill 0.82..1.12) score more, with some luck:
+// range ~45-95 of 100, map ~400-950 of 1000. Mirrored in client/scripts/course.gd.
+export function botStageScore(skill, stage) {
+  const k = (skill - 0.82) / 0.3;
+  if (stage === 'range') return Math.round(Math.max(20, Math.min(98, 45 + k * 45 + rand(-10, 10))));
+  return Math.round(Math.max(150, Math.min(980, 400 + k * 500 + rand(-120, 120))) / 10) * 10;
+}
+
+// Bonus Drill Points for the Level 2 qualification stars.
+export function rangeStarDp(score) {
+  for (const [min, dp] of RANGE_STAR_DP) if ((score ?? 0) >= min) return dp;
+  return 0;
 }
 
 class Room {
@@ -292,7 +306,7 @@ export class Lobby {
     const room = session.room;
     const racer = room?.racers.get(session.id);
     if (!racer || room.state !== 'racing' || room.stage === 'course' || msg.stage !== room.stage || racer.stageDone) return;
-    const score = Math.max(0, Math.min(STAGE_MAX_SCORE, Math.round(Number(msg.score) || 0)));
+    const score = Math.max(0, Math.min(STAGE_MAX_SCORE[room.stage], Math.round(Number(msg.score) || 0)));
     this.submitStage(room, racer, score);
     this.maybeFinishStage(room);
   }
@@ -427,13 +441,11 @@ export class Lobby {
     room.stage = stage;
     room.stageSeed = crypto.randomInt(1, 2 ** 31 - 1);
     room.stageEndsAt = now + STAGE_MS[stage];
-    const [lo, hi] = stage === 'range' ? [35, 70] : [50, 110];
+    const [lo, hi] = stage === 'range' ? [90, 150] : [100, 180];
     for (const r of room.racers.values()) {
       r.stageDone = false;
       if (r.bot) {
-        // Better cadets (higher skill) score more; ~20-45 out of 50 with some luck.
-        const base = 20 + ((r.skill - 0.82) / 0.3) * 25;
-        r.botScore = Math.round(Math.max(5, Math.min(49, base + rand(-7, 7) - (stage === 'map' ? 2 : 0))));
+        r.botScore = botStageScore(r.skill, stage);
         r.botDoneAt = now + rand(lo, hi) * 1000;
       }
     }
@@ -488,7 +500,8 @@ export class Lobby {
         rangeScore: r.rangeScore, mapScore: r.mapScore, points: r.points, dp: 0,
       };
       if (!r.bot) {
-        row.dp = Math.round((r.left ? DNF_DP : PLACE_DP[i] + FINISH_BONUS_DP) * factor);
+        row.starDp = r.left ? 0 : rangeStarDp(r.rangeScore);
+        row.dp = Math.round((r.left ? DNF_DP : PLACE_DP[i] + FINISH_BONUS_DP + row.starDp) * factor);
         const profile = this.store.recordRace(r.deviceId, {
           dp: row.dp, won: row.place === 1, timeMs: row.ms,
         });

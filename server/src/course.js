@@ -68,9 +68,12 @@ export const DNF_DP = 10;
 export const ROLES = ['leader', 'scout', 'support'];
 
 // A match is a 3-level camp competition: L1 obstacle course, L2 target practice
-// (25 m range, 5 shots, max 50), L3 map reading (5 clues, max 50).
-export const STAGE_MS = { range: 100 * 1000, map: 150 * 1000 };
-export const STAGE_MAX_SCORE = 50;
+// (25 m range: accuracy test + final qualification, max 100), L3 map reading & navigation (5 missions, max 1000).
+// L2 has a briefing, stance choice and 3 range stages (position test, accuracy, final).
+export const STAGE_MS = { range: 200 * 1000, map: 240 * 1000 };
+export const STAGE_MAX_SCORE = { range: 100, map: 1000 };
+// Level 2 qualification stars (70 / 80 / 90 out of 100) earn bonus Drill Points.
+export const RANGE_STAR_DP = [[90, 30], [80, 20], [70, 10]];
 // Camp points for 1st..7th in each level; the total decides the match.
 export const STAGE_POINTS = [10, 8, 6, 5, 4, 3, 2];
 
