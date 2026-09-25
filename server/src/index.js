@@ -31,10 +31,19 @@ function serveStatic(req, res) {
   let stat;
   try { stat = fs.statSync(file); } catch { return false; }
   if (!stat.isFile()) return false;
+  // Browsers must re-check every file on each visit (no-cache) so players always get
+  // the latest game after an update; unchanged files cost only a quick 304.
+  const etag = `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+  if (req.headers['if-none-match'] === etag) {
+    res.writeHead(304, { etag, 'cache-control': 'no-cache' });
+    res.end();
+    return true;
+  }
   res.writeHead(200, {
     'content-type': MIME[path.extname(file)] ?? 'application/octet-stream',
     'content-length': stat.size,
-    'cache-control': path.extname(file) === '.html' ? 'no-cache' : 'public, max-age=3600',
+    'cache-control': 'no-cache',
+    etag,
   });
   fs.createReadStream(file).pipe(res);
   return true;
