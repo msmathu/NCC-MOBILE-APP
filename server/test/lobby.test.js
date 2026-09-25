@@ -178,3 +178,18 @@ test('customization is gated by rank', () => {
   lobby.handle(c.s, { t: 'look', uniform: 'army', beret: 'maroon', badge: 'none' });
   assert.equal(c.last('profile').profile.uniform, 'army');
 });
+
+test('game-wide cadet count covers every room and the menu', () => {
+  const { lobby, join } = setup();
+  const a = join('Alpha', 0);
+  const b = join('Bravo', 1);
+  const c = join('Charlie', 2);
+  assert.deepEqual(c.last('stats'), { t: 'stats', online: 3, inMatch: 0 });
+  lobby.handle(a.s, { t: 'create' });
+  lobby.handle(b.s, { t: 'quick' }); // a different room
+  lobby.broadcastStats(true);
+  assert.deepEqual(c.last('stats'), { t: 'stats', online: 3, inMatch: 2 });
+  lobby.disconnect(b.s, b.send);
+  lobby.broadcastStats();
+  assert.deepEqual(a.last('stats'), { t: 'stats', online: 2, inMatch: 1 });
+});

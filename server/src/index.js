@@ -88,6 +88,7 @@ setInterval(() => {
 
 setInterval(() => lobby.tick(), 100);
 setInterval(() => lobby.sweep(), 5000);
+setInterval(() => lobby.broadcastStats(), 2000);
 
 server.listen(PORT, () => console.log(`NCC Cadet Challenge server on :${PORT} (db: ${DB_FILE})`));
 

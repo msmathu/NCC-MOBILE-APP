@@ -162,7 +162,7 @@ func _build_hud() -> void:
 	hud.add_child(game_layer)
 	cheer_bar = UI.hbox(6)
 	cheer_bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	cheer_bar.offset_top = 100
+	cheer_bar.offset_top = 228 # below the banner and hint text
 	cheer_bar.offset_right = -16
 	cheer_bar.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	if mode != "practice":

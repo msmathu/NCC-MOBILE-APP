@@ -15,11 +15,15 @@ signal error(msg: String)
 signal left
 signal stage(data: Dictionary)
 signal stage_done(data: Dictionary)
+signal stats(online: int, in_match: int)
 
 var online := false
 var my_id := ""
 var last_room: Dictionary = {}
 var ping_ms := 0
+## Game-wide head count from the server (all rooms, app + web).
+var online_count := 0
+var in_match_count := 0
 
 var _ws: WebSocketPeer
 var _token := ""
@@ -190,6 +194,10 @@ func _dispatch(text: String) -> void:
 			board.emit(msg)
 		"stage":
 			stage.emit(msg)
+		"stats":
+			online_count = int(msg.get("online", 0))
+			in_match_count = int(msg.get("inMatch", 0))
+			stats.emit(online_count, in_match_count)
 		"stagedone":
 			stage_done.emit(msg)
 		"left":

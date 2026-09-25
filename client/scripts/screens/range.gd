@@ -627,7 +627,8 @@ func _draw_hud() -> void:
 		InstructorFace.paint(self, bar.position + Vector2(24, 22), 0.6)
 		draw_string(font, bar.position + Vector2(54, 29), instr, HORIZONTAL_ALIGNMENT_LEFT, bar.size.x - 62, 17, Color("1f2a44"))
 	if _shooting():
-		_text_left(Vector2(w * 0.36, size.y - 12), "Drag to aim  -  Hold BREATH to steady  -  Keys: arrows, Shift, Space", 14, UI.KHAKI_LIGHT)
+		_text_left(Vector2(16, 174), "Drag to aim  -  Hold BREATH to steady", 14, UI.KHAKI_LIGHT)
+		_text_left(Vector2(16, 194), "Keys: arrows, Shift, Space", 13, UI.KHAKI_LIGHT)
 
 
 func _draw_analysis() -> void:

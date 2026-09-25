@@ -34,7 +34,14 @@ func paint(a: Rect2) -> void:
 	for i in 21:
 		var k := i / 20.0 # 0 = far future (top), 1 = now (bottom)
 		pts.append(Vector2(cx + _target(elapsed + (1.0 - k) * 1.4) * half, a.position.y + 10 + k * (a.size.y - 60)))
-	draw_polyline(pts, Color(GOLD, 0.35), win(0.26) * half * 2.0)
+	# tolerance band as a filled strip (a very wide polyline breaks at the corners)
+	var band := PackedVector2Array()
+	var w := win(0.26) * half
+	for p in pts:
+		band.append(p - Vector2(w, 0))
+	for i in range(pts.size() - 1, -1, -1):
+		band.append(pts[i] + Vector2(w, 0))
+	draw_colored_polygon(band, Color(GOLD, 0.3))
 	draw_polyline(pts, Color("8b5a2b"), 8)
 	var my := Vector2(cx + marker * half, a.end.y - 50)
 	var on_path := absf(marker - _target(elapsed)) < win(0.26)

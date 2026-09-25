@@ -35,14 +35,9 @@ func _ready() -> void:
 	layer.add_child(root)
 	backdrop = Backdrop.new()
 	root.add_child(backdrop)
-	status = UI.label("", 16, UI.KHAKI_LIGHT, HORIZONTAL_ALIGNMENT_RIGHT)
-	status.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	status.offset_left = -320
-	status.offset_top = -30
-	status.offset_right = -12
-	status.offset_bottom = -6
-	root.add_child(status)
+	_build_counter()
 	Net.room.connect(_on_room)
+	Net.stats.connect(func(_o: int, _m: int) -> void: _refresh_counter())
 	Net.left.connect(func() -> void: go("menu"))
 	Net.error.connect(func(msg: String) -> void: UI.toast(root, msg, UI.RED))
 	Net.online_changed.connect(_on_online)
@@ -84,7 +79,6 @@ func go(name: String, data := {}) -> void:
 		if data.mode == "practice":
 			node.practice_over.connect(_practice_course_done)
 		backdrop.visible = false
-		status.visible = false
 		add_child(node)
 	else:
 		node = SCREENS[name].new()
@@ -93,9 +87,7 @@ func go(name: String, data := {}) -> void:
 		if name in ["range", "mapread"] and data.get("mode") == "practice":
 			node.level_done.connect(_practice_stage_done.bind("range" if name == "range" else "map"))
 		backdrop.visible = name not in ["range", "mapread"]
-		status.visible = true
 		root.add_child(node)
-		root.move_child(status, -1)
 	current = node
 
 
@@ -208,14 +200,54 @@ func _on_room(room: Dictionary) -> void:
 				go("results", {"room": room})
 
 
-func _on_online(online: bool) -> void:
-	status.text = ("Online  %dms" % Net.ping_ms) if online else "Offline - practice available"
-	status.add_theme_color_override("font_color", Color("2ecc71") if online else UI.KHAKI)
+## Always-visible pill (every screen, including races) with the game-wide number
+## of cadets online and how many are in matches. Own top layer so no screen hides it.
+func _build_counter() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 20
+	add_child(layer)
+	var anchor := Control.new()
+	anchor.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	anchor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	anchor.theme = root.theme
+	layer.add_child(anchor)
+	var pill := PanelContainer.new()
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(0, 0, 0, 0.6)
+	s.set_corner_radius_all(12)
+	s.content_margin_left = 12
+	s.content_margin_right = 12
+	s.content_margin_top = 2
+	s.content_margin_bottom = 2
+	pill.add_theme_stylebox_override("panel", s)
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pill.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	pill.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	pill.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	pill.offset_bottom = -4
+	anchor.add_child(pill)
+	status = UI.label("", 15, UI.KHAKI_LIGHT, HORIZONTAL_ALIGNMENT_CENTER)
+	pill.add_child(status)
+	_refresh_counter()
+
+
+func _refresh_counter() -> void:
+	if not Net.online:
+		status.text = "Offline  -  practice available"
+		status.add_theme_color_override("font_color", UI.KHAKI)
+		return
+	var n := Net.online_count
+	status.text = "🟢 %d cadet%s online   ·   %d in matches   ·   %dms" % [n, "" if n == 1 else "s", Net.in_match_count, Net.ping_ms]
+	status.add_theme_color_override("font_color", Color("2ecc71"))
+
+
+func _on_online(_online: bool) -> void:
+	_refresh_counter()
 
 
 func _process(_d: float) -> void:
 	if Net.online and Engine.get_process_frames() % 60 == 0:
-		status.text = "Online  %dms" % Net.ping_ms
+		_refresh_counter()
 
 
 func _notification(what: int) -> void:

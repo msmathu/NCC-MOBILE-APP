@@ -162,6 +162,7 @@ export class Lobby {
       const racer = prev.room?.racers.get(prev.id);
       if (racer) racer.connected = true;
       prev.send({ t: 'welcome', id: prev.id, token: prev.token, profile: this.store.profile(deviceId), resumed: !!prev.room });
+      prev.send(this.stats());
       if (prev.room) this.pushRoom(prev.room);
       return prev;
     }
@@ -173,6 +174,7 @@ export class Lobby {
     this.sessions.set(session.id, session);
     this.byToken.set(session.token, session);
     session.send({ t: 'welcome', id: session.id, token: session.token, profile, resumed: false });
+    session.send(this.stats());
     return session;
   }
 
@@ -594,6 +596,30 @@ export class Lobby {
       pl: [...room.racers.values()].map((r) => [r.id, Math.round(r.p * 10000) / 10000, r.st]),
     });
     this.maybeFinishRace(room);
+  }
+
+  // Game-wide head count shown on every screen: all connected cadets (app + web),
+  // and how many of them are in a room right now.
+  stats() {
+    let online = 0;
+    let inMatch = 0;
+    for (const s of this.sessions.values()) {
+      if (!s.hello || s.closedAt) continue;
+      online++;
+      if (s.room) inMatch++;
+    }
+    return { t: 'stats', online, inMatch };
+  }
+
+  // Sends the head count to everyone when it changed (or every 15 s as a refresh).
+  broadcastStats(force = false) {
+    const st = this.stats();
+    const key = `${st.online}/${st.inMatch}`;
+    const now = this.now();
+    if (!force && key === this.lastStatsKey && now - (this.lastStatsAt ?? 0) < 15000) return;
+    this.lastStatsKey = key;
+    this.lastStatsAt = now;
+    for (const s of this.sessions.values()) if (s.hello && !s.closedAt) s.send(st);
   }
 
   // Drops sessions whose reconnect grace expired. Called every few seconds.
