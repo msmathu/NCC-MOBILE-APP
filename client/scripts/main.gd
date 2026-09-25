@@ -54,6 +54,10 @@ func _ready() -> void:
 			Profile.cadet_name = "Cadet Test"
 		start_practice(practice_arg)
 		return
+	if OS.get_cmdline_user_args().has("--auto-quick"): # debug: quick-join and stay in the lobby
+		if Profile.cadet_name == "":
+			Profile.cadet_name = "Cadet Test"
+		Net.welcome.connect(func(_m: Dictionary) -> void: Net.send({"t": "quick"}), CONNECT_ONE_SHOT)
 	if OS.get_cmdline_user_args().has("--auto-online"): # debug: create a room and start with bots
 		if Profile.cadet_name == "":
 			Profile.cadet_name = "Cadet Test"

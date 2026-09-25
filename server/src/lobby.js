@@ -2,7 +2,7 @@
 // guest sessions, bots and race sync. Transport-agnostic: sessions expose send().
 import crypto from 'node:crypto';
 import {
-  ROOM_SIZE, COUNTDOWN_SECONDS, RACE_TIMEOUT_MS, RESULTS_LINGER_MS, RECONNECT_GRACE_MS,
+  ROOM_SIZE, COUNTDOWN_SECONDS, AUTO_FILL_MS, RACE_TIMEOUT_MS, RESULTS_LINGER_MS, RECONNECT_GRACE_MS,
   FINISH_X, OBSTACLE_COUNT, OBSTACLE_PASS_WIDTH, SPRINT_LENGTH, MIN_FINISH_MS,
   DIRECTORATES, ROLES, BOT_NAMES, PLACE_DP, FINISH_BONUS_DP, DNF_DP, obstacleX,
   STAGE_MS, STAGE_MAX_SCORE, STAGE_POINTS, RANGE_STAR_DP,
@@ -86,6 +86,8 @@ class Room {
     this.spectators = new Set(); // sessions
     this.rolesMode = false;
     this.countdownEndsAt = 0;
+    this.autoFillAt = 0; // when 2+ cadets wait, bots fill the room at this time
+    this.startVotes = new Set();
     this.startedAt = 0;
     this.results = null;
     this.resultsAt = 0;
@@ -215,9 +217,20 @@ export class Lobby {
   }
 
   // Host starts early: empty slots are filled with bot cadets.
+  // Host starts at once; other cadets vote, and a majority of the room starts it.
+  // Empty slots are filled with bot cadets either way.
   onStart(session) {
     const room = session.room;
-    if (!room || room.hostId !== session.id || room.state !== 'waiting') return;
+    if (!room || room.state !== 'waiting' || !room.racers.has(session.id)) return;
+    if (room.hostId !== session.id) {
+      room.startVotes.add(session.id);
+      const humans = room.humans().filter((r) => r.connected).length;
+      if (room.startVotes.size * 2 <= humans) return this.pushRoom(room);
+    }
+    this.fillAndStart(room);
+  }
+
+  fillAndStart(room) {
     let n = 0;
     const used = new Set([...room.racers.values()].map((r) => r.name));
     const names = BOT_NAMES.filter((b) => !used.has(b)).sort(() => Math.random() - 0.5);
@@ -387,7 +400,25 @@ export class Lobby {
     else this.pushRoom(room);
   }
 
+  // Waiting room: with 2+ connected cadets a bot-fill timer runs; it is cancelled
+  // if the room drops below 2. Votes from cadets who left are discarded.
+  tickWaiting(room, now) {
+    for (const id of [...room.startVotes]) if (!room.racers.has(id)) room.startVotes.delete(id);
+    const humans = room.humans().filter((r) => r.connected).length;
+    if (humans >= 2 && !room.autoFillAt) {
+      room.autoFillAt = now + AUTO_FILL_MS;
+      this.pushRoom(room);
+    } else if (humans < 2 && room.autoFillAt) {
+      room.autoFillAt = 0;
+      this.pushRoom(room);
+    } else if (room.autoFillAt && now >= room.autoFillAt) {
+      this.fillAndStart(room);
+    }
+  }
+
   startCountdown(room) {
+    room.autoFillAt = 0;
+    room.startVotes.clear();
     room.state = 'countdown';
     room.countdownEndsAt = this.now() + COUNTDOWN_SECONDS * 1000;
     this.pushRoom(room);
@@ -544,6 +575,8 @@ export class Lobby {
       rolesMode: room.rolesMode,
       size: ROOM_SIZE,
       countdownMs: room.state === 'countdown' ? Math.max(0, room.countdownEndsAt - now) : 0,
+      autoFillMs: room.state === 'waiting' && room.autoFillAt ? Math.max(0, room.autoFillAt - now) : 0,
+      startVotes: [...room.startVotes],
       elapsedMs: room.state === 'racing' ? now - room.startedAt : 0,
       stage: room.state === 'racing' ? room.stage : null,
       stageSeed: room.stageSeed ?? 0,
@@ -571,6 +604,7 @@ export class Lobby {
   tick() {
     const now = this.now();
     for (const room of this.rooms.values()) {
+      if (room.state === 'waiting') this.tickWaiting(room, now);
       if (room.state === 'countdown' && now >= room.countdownEndsAt) this.startRace(room);
       else if (room.state === 'racing' && room.stage === 'course') this.tickRace(room, now);
       else if (room.state === 'racing') this.tickStage(room, now);

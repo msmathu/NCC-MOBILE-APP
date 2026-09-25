@@ -3,6 +3,8 @@
 
 export const ROOM_SIZE = 7;
 export const COUNTDOWN_SECONDS = 10;
+// Once 2+ cadets are waiting, bots fill the remaining slots after this long.
+export const AUTO_FILL_MS = 45 * 1000;
 export const RACE_TIMEOUT_MS = 6 * 60 * 1000;
 export const RESULTS_LINGER_MS = 60 * 1000;
 export const RECONNECT_GRACE_MS = 60 * 1000;

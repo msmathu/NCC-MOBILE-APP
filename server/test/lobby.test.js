@@ -193,3 +193,36 @@ test('game-wide cadet count covers every room and the menu', () => {
   lobby.broadcastStats();
   assert.deepEqual(a.last('stats'), { t: 'stats', online: 2, inMatch: 1 });
 });
+
+test('non-host cadets vote to start; a majority fills with bots', () => {
+  const { lobby, join } = setup();
+  const [a, b, c] = [join('Alpha', 0), join('Bravo', 1), join('Charlie', 2)];
+  lobby.handle(a.s, { t: 'create' });
+  const code = a.last('room').code;
+  lobby.handle(b.s, { t: 'join', code });
+  lobby.handle(c.s, { t: 'join', code });
+  lobby.handle(b.s, { t: 'start' }); // 1 of 3: not yet
+  assert.equal(a.last('room').state, 'waiting');
+  assert.deepEqual(a.last('room').startVotes, [b.s.id]);
+  lobby.handle(c.s, { t: 'start' }); // 2 of 3: majority
+  const r = a.last('room');
+  assert.equal(r.state, 'countdown');
+  assert.equal(r.players.length, 7);
+  assert.equal(r.players.filter((p) => p.bot).length, 4);
+});
+
+test('two waiting cadets get bots automatically after the fill timer', () => {
+  const { lobby, join, advance } = setup();
+  const a = join('Alpha', 0);
+  const b = join('Bravo', 1);
+  lobby.handle(a.s, { t: 'create' });
+  advance(60 * 1000);
+  assert.equal(a.last('room').state, 'waiting', 'a lone host is never auto-filled');
+  assert.equal(a.last('room').autoFillMs, 0);
+  lobby.handle(b.s, { t: 'join', code: a.last('room').code });
+  advance(200);
+  assert.ok(a.last('room').autoFillMs > 40 * 1000);
+  advance(46 * 1000);
+  assert.ok(['countdown', 'racing'].includes(a.last('room').state));
+  assert.equal(a.last('room').players.filter((p) => p.bot).length, 5);
+});
