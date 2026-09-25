@@ -46,6 +46,7 @@ var _follow_id := ""
 var _warned := -1
 var _results_sent := false
 var _autopilot := OS.get_cmdline_user_args().has("--autopilot")
+var _promo := OS.get_cmdline_user_args().has("--promo")
 
 var world: Node2D
 var cam: Camera2D
@@ -183,7 +184,7 @@ func _process(d: float) -> void:
 		# debug: clear each obstacle after a moment so the whole course can be previewed
 		if state == "sprint":
 			game.on_press(Vector2.INF, false)
-		elif game.elapsed > 1.4:
+		elif game.elapsed > (2.4 if _promo else 1.4):
 			game.finish(true)
 	var was_negative := clock < 0.0
 	clock += d

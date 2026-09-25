@@ -43,6 +43,10 @@ func _ready() -> void:
 	Net.online_changed.connect(_on_online)
 	_on_online(false)
 	_start_screenshots()
+	if OS.get_cmdline_user_args().has("--promo"): # debug: clean frames for promo videos
+		status.get_parent().visible = false
+		Profile.cadet_name = "YOU"
+		Profile.voice_on = false
 	var practice_arg := ""
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--practice"):
